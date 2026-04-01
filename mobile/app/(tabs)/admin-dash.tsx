@@ -8,23 +8,24 @@ import {
 	ActivityIndicator,
 } from "react-native";
 
-// 1. Define what your database data looks like
 interface DashboardStats {
 	activeIssues: number;
 	flaggedItems: number;
 	openLnF: number;
 }
 
-interface FlaggedReport {
-	report_id: number;
-	title: string;
-	details: string;
+interface FlaggedIssue {
+	id: number;
+	category: string;
+	severity: string;
+	description: string;
+	report_count: number;
 }
 
 interface FlaggedUser {
-	user_id: string;
-	username: string;
-	details: string;
+	id: number;
+	email: string;
+	status: string;
 }
 
 export default function AdminDashboardScreen() {
@@ -33,32 +34,37 @@ export default function AdminDashboardScreen() {
 		flaggedItems: 0,
 		openLnF: 0,
 	});
-	const [flaggedReports, setFlaggedReports] = useState<FlaggedReport[]>([]);
+
+	const [flaggedIssues, setFlaggedIssues] = useState<FlaggedIssue[]>([]);
 	const [flaggedUsers, setFlaggedUsers] = useState<FlaggedUser[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
 
 	useEffect(() => {
-		setTimeout(() => {
-			setStats({ activeIssues: 24, flaggedItems: 7, openLnF: 12 });
+		const fetchAdminData = async () => {
+			try {
+				const BASE_URL = "http://localhost:8081/api/admin";
 
-			setFlaggedReports([
-				{
-					report_id: 1,
-					title: "Fight in dining hall",
-					details: "Reported by 3 users - Severe - 2 hours ago",
-				},
-			]);
+				const [statsRes, issuesRes, usersRes] = await Promise.all([
+					fetch(`${BASE_URL}/analytics`),
+					fetch(`${BASE_URL}/moderation-queue`),
+					fetch(`${BASE_URL}/users`),
+				]);
 
-			setFlaggedUsers([
-				{
-					user_id: "user_4630",
-					username: "user_4630",
-					details: "3 flagged submissions\nLast Active 2 hours ago",
-				},
-			]);
+				const statsData = await statsRes.json();
+				const issuesData = await issuesRes.json();
+				const usersData = await usersRes.json();
 
-			setIsLoading(false);
-		}, 1000);
+				setStats(statsData);
+				setFlaggedIssues(issuesData);
+				setFlaggedUsers(usersData);
+			} catch (error) {
+				console.error("❌ Failed to fetch admin data:", error);
+			} finally {
+				setIsLoading(false);
+			}
+		};
+
+		fetchAdminData();
 	}, []);
 
 	if (isLoading) {
@@ -96,16 +102,19 @@ export default function AdminDashboardScreen() {
 
 			{/* Dynamic Flagged Content Section */}
 			<Text style={styles.sectionTitle}>Flagged Content - Review Queue</Text>
-			{flaggedReports.length === 0 ? (
+			{flaggedIssues.length === 0 ? (
 				<Text style={styles.emptyText}>No flagged items to review.</Text>
 			) : (
-				flaggedReports.map((report) => (
-					<View key={`report-${report.report_id}`} style={styles.card}>
+				flaggedIssues.map((issue) => (
+					<View key={`issue-${issue.id}`} style={styles.card}>
 						<View style={styles.cardInfo}>
 							<Text style={styles.cardTitle}>
-								Issue: &quot;{report.title}&quot;
+								{issue.category} Issue ({issue.severity})
 							</Text>
-							<Text style={styles.cardSubtitle}>{report.details}</Text>
+							<Text style={styles.cardSubtitle}>"{issue.description}"</Text>
+							<Text style={styles.warningText}>
+								Reported by {issue.report_count} users
+							</Text>
 						</View>
 						<View style={styles.actionButtons}>
 							<TouchableOpacity style={styles.buttonPrimary}>
@@ -125,10 +134,12 @@ export default function AdminDashboardScreen() {
 				<Text style={styles.emptyText}>No users require moderation.</Text>
 			) : (
 				flaggedUsers.map((user) => (
-					<View key={`user-${user.user_id}`} style={styles.card}>
+					<View key={`user-${user.id}`} style={styles.card}>
 						<View style={styles.cardInfo}>
-							<Text style={styles.cardTitle}>{user.username}</Text>
-							<Text style={styles.cardSubtitle}>{user.details}</Text>
+							<Text style={styles.cardTitle}>{user.email}</Text>
+							<Text style={styles.cardSubtitle}>
+								Account Status: {user.status}
+							</Text>
 						</View>
 						<View style={styles.actionButtons}>
 							<TouchableOpacity style={styles.buttonPrimary}>
@@ -231,8 +242,14 @@ const styles = StyleSheet.create({
 		marginBottom: 4,
 	},
 	cardSubtitle: {
-		fontSize: 13,
+		fontSize: 14,
 		color: "#aaaaaa",
+		marginBottom: 4,
+	},
+	warningText: {
+		fontSize: 13,
+		color: "#cf6679", // Uses the red color to make the report count pop
+		fontWeight: "500",
 	},
 	actionButtons: {
 		flexDirection: "row",
