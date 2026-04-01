@@ -42,7 +42,7 @@ export default function AdminDashboardScreen() {
 	useEffect(() => {
 		const fetchAdminData = async () => {
 			try {
-				const BASE_URL = "http://localhost:8081/api/admin";
+				const BASE_URL = "http://localhost:3000/api/admin";
 
 				const [statsRes, issuesRes, usersRes] = await Promise.all([
 					fetch(`${BASE_URL}/analytics`),
@@ -111,7 +111,9 @@ export default function AdminDashboardScreen() {
 							<Text style={styles.cardTitle}>
 								{issue.category} Issue ({issue.severity})
 							</Text>
-							<Text style={styles.cardSubtitle}>"{issue.description}"</Text>
+							<Text style={styles.cardSubtitle}>
+								&quot;{issue.description}&quot;
+							</Text>
 							<Text style={styles.warningText}>
 								Reported by {issue.report_count} users
 							</Text>
