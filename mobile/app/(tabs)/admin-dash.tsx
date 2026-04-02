@@ -42,7 +42,7 @@ export default function AdminDashboardScreen() {
 		const fetchAdminData = async () => {
 			try {
 				// IMPORTANT: Replace this with your actual IPv4 address or ngrok URL!
-				const BASE_URL = "http://192.168.0.137:3000/api/admin";
+				const BASE_URL = "http://localhost:3000/api/admin";
 
 				const [statsRes, issuesRes, usersRes] = await Promise.all([
 					fetch(`${BASE_URL}/analytics`),
