@@ -38,8 +38,10 @@ export default function AdminDashboardScreen() {
 	const [flaggedUsers, setFlaggedUsers] = useState<FlaggedUser[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
 
+	// IMPORTANT: Replace this with your actual IPv4 address or ngrok URL when testing on a physical device!
 	const BASE_URL = "http://localhost:3000/api/admin";
 
+	// --- ISSUE ACTIONS ---
 	const handleRemoveIssue = async (issueId: number) => {
 		try {
 			const response = await fetch(`${BASE_URL}/issues/${issueId}`, {
@@ -76,6 +78,26 @@ export default function AdminDashboardScreen() {
 		}
 	};
 
+	// --- USER ACTIONS ---
+	const handleSuspendUser = async (userId: number) => {
+		try {
+			const response = await fetch(`${BASE_URL}/users/${userId}/suspend`, {
+				method: "PATCH",
+			});
+
+			if (response.ok) {
+				setFlaggedUsers((prevUsers) =>
+					prevUsers.filter((user) => user.id !== userId),
+				);
+			} else {
+				console.error("Backend refused to suspend the user.");
+			}
+		} catch (error) {
+			console.error("Network error when trying to suspend:", error);
+		}
+	};
+
+	// --- FETCH DATA ---
 	useEffect(() => {
 		const fetchAdminData = async () => {
 			try {
@@ -88,10 +110,6 @@ export default function AdminDashboardScreen() {
 				const statsData = await statsRes.json();
 				const issuesData = await issuesRes.json();
 				const usersData = await usersRes.json();
-
-				console.log("Stats Data:", statsData);
-				console.log("Issues Data:", issuesData);
-				console.log("Users Data:", usersData);
 
 				setStats(statsData);
 				setFlaggedIssues(issuesData);
@@ -117,11 +135,13 @@ export default function AdminDashboardScreen() {
 
 	return (
 		<ScrollView style={styles.container}>
+			{/* Header */}
 			<View style={styles.header}>
 				<Text style={styles.headerTitle}>Admin Dashboard</Text>
 				<Text style={styles.headerRole}>Admin</Text>
 			</View>
 
+			{/* Summary Boxes */}
 			<View style={styles.summaryContainer}>
 				<View style={styles.summaryBox}>
 					<Text style={styles.summaryTitle}>Active Issues</Text>
@@ -137,6 +157,7 @@ export default function AdminDashboardScreen() {
 				</View>
 			</View>
 
+			{/* Flagged Content Section */}
 			<Text style={styles.sectionTitle}>Flagged Content - Review Queue</Text>
 
 			{!flaggedIssues ||
@@ -175,6 +196,7 @@ export default function AdminDashboardScreen() {
 				))
 			)}
 
+			{/* User Management Section */}
 			<Text style={styles.sectionTitle}>User Management</Text>
 
 			{!flaggedUsers ||
@@ -191,10 +213,16 @@ export default function AdminDashboardScreen() {
 							</Text>
 						</View>
 						<View style={styles.actionButtons}>
+							{/* Placeholder View Button for later */}
 							<TouchableOpacity style={styles.buttonPrimary}>
 								<Text style={styles.buttonText}>View</Text>
 							</TouchableOpacity>
-							<TouchableOpacity style={styles.buttonDanger}>
+
+							{/* Working Suspend Button */}
+							<TouchableOpacity
+								style={styles.buttonDanger}
+								onPress={() => handleSuspendUser(user.id)}
+							>
 								<Text style={styles.buttonTextDanger}>Suspend</Text>
 							</TouchableOpacity>
 						</View>
