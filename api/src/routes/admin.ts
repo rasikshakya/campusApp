@@ -95,10 +95,37 @@ adminRouter.patch("/users/:id/suspend", (_req, res) => {
 	}
 });
 
-// PATCH /api/admin/users/:id/ban - Ban user account
+// PATCH /api/admin/users/:id/ban - Ban user account AND delete their content
 adminRouter.patch("/users/:id/ban", (_req, res) => {
-	// TODO: Set user status to banned, log action
-	res.status(501).json({ message: "Not implemented: ban user" });
+	try {
+		const db = getDatabase();
+		const userId = _req.params.id;
+
+		db.prepare("UPDATE users SET status = 'banned' WHERE id = ?").run(userId);
+
+		db.prepare("DELETE FROM issues WHERE reporter_id = ?").run(userId);
+
+		db.prepare("DELETE FROM lost_found_items WHERE reporter_id = ?").run(
+			userId,
+		);
+
+		res.json({
+			message: `User ${userId} banned and all their content was permanently deleted.`,
+		});
+	} catch (error: any) {
+		res.status(500).json({ error: error.message });
+	}
+});
+
+adminRouter.patch("/users/:id/reactivate", (_req, res) => {
+	try {
+		const db = getDatabase();
+		const userId = _req.params.id;
+		db.prepare("UPDATE users SET status = 'active' WHERE id = ?").run(userId);
+		res.json({ message: `User ${userId} reactivated.` });
+	} catch (error: any) {
+		res.status(500).json({ error: error.message });
+	}
 });
 
 // GET /api/admin/audit-log - View audit trail

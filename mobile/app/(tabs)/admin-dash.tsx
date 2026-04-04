@@ -21,6 +21,7 @@ interface FlaggedIssue {
 	severity: string;
 	description: string;
 	report_count: number;
+	reporter_id: number;
 }
 
 interface FlaggedUser {
@@ -38,6 +39,7 @@ interface HistoryItem {
 	status: string;
 	created_at: string;
 }
+
 export default function AdminDashboardScreen() {
 	const [stats, setStats] = useState<DashboardStats>({
 		activeIssues: 0,
@@ -101,13 +103,58 @@ export default function AdminDashboardScreen() {
 
 			if (response.ok) {
 				setFlaggedUsers((prevUsers) =>
-					prevUsers.filter((user) => user.id !== userId),
+					prevUsers.map((user) =>
+						user.id === userId ? { ...user, status: "suspended" } : user,
+					),
 				);
 			} else {
 				console.error("Backend refused to suspend the user.");
 			}
 		} catch (error) {
 			console.error("Network error when trying to suspend:", error);
+		}
+	};
+
+	const handleBanUser = async (userId: number) => {
+		try {
+			const response = await fetch(`${BASE_URL}/users/${userId}/ban`, {
+				method: "PATCH",
+			});
+			if (response.ok) {
+				setFlaggedUsers((prevUsers) =>
+					prevUsers.map((user) =>
+						user.id === userId ? { ...user, status: "banned" } : user,
+					),
+				);
+				setFlaggedIssues((prevIssues) =>
+					prevIssues.filter((issue) => issue.reporter_id !== userId),
+				);
+
+				const statsRes = await fetch(`${BASE_URL}/analytics?t=${Date.now()}`, {
+					headers: { "Cache-Control": "no-cache, no-store" },
+				});
+				const freshStats = await statsRes.json();
+				setStats(freshStats);
+			}
+		} catch (error) {
+			console.error("Network error when trying to ban:", error);
+		}
+	};
+
+	const handleReinstateUser = async (userId: number) => {
+		try {
+			const response = await fetch(`${BASE_URL}/users/${userId}/reactivate`, {
+				method: "PATCH",
+			});
+			if (response.ok) {
+				setFlaggedUsers((prevUsers) =>
+					prevUsers.map((user) =>
+						user.id === userId ? { ...user, status: "active" } : user,
+					),
+				);
+			}
+		} catch (error) {
+			console.error("Network error when trying to reinstate user:", error);
 		}
 	};
 
@@ -253,17 +300,54 @@ export default function AdminDashboardScreen() {
 								<Text style={styles.buttonText}>View</Text>
 							</TouchableOpacity>
 
-							{/* Working Suspend Button */}
-							<TouchableOpacity
-								style={styles.buttonDanger}
-								onPress={() => handleSuspendUser(user.id)}
-							>
-								<Text style={styles.buttonTextDanger}>Suspend</Text>
-							</TouchableOpacity>
+							{user.status === "banned" && (
+								<TouchableOpacity
+									style={[
+										styles.buttonPrimary,
+										{ backgroundColor: "#4caf50", borderColor: "#4caf50" },
+									]}
+									onPress={() => handleReinstateUser(user.id)}
+								>
+									<Text style={styles.buttonText}>Reinstate</Text>
+								</TouchableOpacity>
+							)}
+
+							{user.status === "suspended" && (
+								<TouchableOpacity
+									style={[
+										styles.buttonPrimary,
+										{ backgroundColor: "#4caf50", borderColor: "#4caf50" },
+									]}
+									onPress={() => handleReinstateUser(user.id)}
+								>
+									<Text style={styles.buttonText}>Reinstate</Text>
+								</TouchableOpacity>
+							)}
+
+							{user.status === "active" && (
+								<TouchableOpacity
+									style={[styles.buttonDanger, { borderColor: "#ffb74d" }]}
+									onPress={() => handleSuspendUser(user.id)}
+								>
+									<Text style={[styles.buttonTextDanger, { color: "#ffb74d" }]}>
+										Suspend
+									</Text>
+								</TouchableOpacity>
+							)}
+
+							{user.status !== "banned" && (
+								<TouchableOpacity
+									style={[styles.buttonDanger, { borderColor: "#f44336" }]}
+									onPress={() => handleBanUser(user.id)}
+								>
+									<Text style={styles.buttonTextDanger}>Ban</Text>
+								</TouchableOpacity>
+							)}
 						</View>
 					</View>
 				))
 			)}
+
 			{/* User History Modal */}
 			<Modal
 				visible={isModalVisible}
