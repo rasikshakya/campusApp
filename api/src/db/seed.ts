@@ -16,10 +16,10 @@ function seed(): void {
 		const schemaSql = fs.readFileSync(schemaPath, "utf-8");
 
 		db.exec(schemaSql);
-		console.log("✅ Tables built successfully from the migrations file!");
+		console.log("Tables built successfully from the migrations file!");
 	} catch (error) {
 		console.error(
-			"❌ Failed to read the SQL file. Check the path and filename!",
+			"Failed to read the SQL file. Check the path and filename!",
 			error,
 		);
 		return;
@@ -37,7 +37,7 @@ function seed(): void {
         DELETE FROM sqlite_sequence; 
     `);
 
-	console.log("💉 Injecting flagged seed data...");
+	console.log("Injecting flagged seed data...");
 
 	// Create a test admin user (password: "admin123" — NOT for production)
 	const adminHash = "$2b$10$placeholder_hash_for_dev_only";
@@ -111,7 +111,7 @@ function seed(): void {
     `,
 	).run(studentId);
 
-	console.log("🎉 Ultimate seed data inserted successfully.");
+	console.log("Seed data inserted successfully.");
 	closeDatabase();
 }
 
