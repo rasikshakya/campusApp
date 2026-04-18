@@ -21,12 +21,6 @@ export default function LoginScreen() {
 	const [error, setError] = useState("");
 	const [mode, setMode] = useState<"login" | "register">("login");
 
-	//TEMPORARY: Remove this once the backend auth is fully hooked up
-	const handleDevBypass = () => {
-		setAuthToken("fake-dev-token-123");
-		router.replace("/(tabs)");
-	};
-
 	const handleSubmit = async () => {
 		setError("");
 		if (!email.trim()) return setError("Please enter your email address.");
@@ -120,14 +114,6 @@ export default function LoginScreen() {
 							{mode === "login" ? "Sign in" : "Create account"}
 						</Text>
 					)}
-				</TouchableOpacity>
-
-				{/*DEV BYPASS BUTTON - REMOVE FOR PRODUCTION*/}
-				<TouchableOpacity
-					style={[styles.btn, { backgroundColor: "#e74c3c", marginTop: 10 }]}
-					onPress={handleDevBypass}
-				>
-					<Text style={styles.btnText}>Skip Login (Dev Mode)</Text>
 				</TouchableOpacity>
 
 				{/* Toggle mode */}
