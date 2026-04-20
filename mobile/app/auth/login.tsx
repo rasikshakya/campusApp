@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { authAPI, setAuthToken } from "../../src/services/api";
+import * as SecureStore from "expo-secure-store";
 
 export default function LoginScreen() {
 	const router = useRouter();
@@ -40,6 +41,8 @@ export default function LoginScreen() {
 			} else {
 				const res = await authAPI.login(email.trim().toLowerCase(), password);
 				setAuthToken(res.token);
+				await SecureStore.setItemAsync("user_role", res.user.role);
+				await SecureStore.setItemAsync("auth_token", res.token);
 				router.replace("/(tabs)");
 			}
 		} catch (err: any) {

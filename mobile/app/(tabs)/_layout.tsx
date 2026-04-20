@@ -1,5 +1,6 @@
 import { Tabs } from "expo-router";
-import React from "react";
+import React, { useState, useEffect } from "react";
+import * as SecureStore from "expo-secure-store";
 
 import { HapticTab } from "@/components/haptic-tab";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -8,6 +9,20 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 
 export default function TabLayout() {
 	const colorScheme = useColorScheme();
+	const [userRole, setUserRole] = useState<string | null>(null);
+
+	// Fetch the user's role from the secure vault when the layout loads
+	useEffect(() => {
+		async function fetchRole() {
+			try {
+				const role = await SecureStore.getItemAsync("user_role");
+				setUserRole(role);
+			} catch (error) {
+				console.error("Failed to load user role", error);
+			}
+		}
+		fetchRole();
+	}, []);
 
 	return (
 		<Tabs
@@ -57,6 +72,8 @@ export default function TabLayout() {
 				name="admin-dash"
 				options={{
 					title: "Admin",
+					// THE FIX: If they are an admin, link to the dash. Otherwise, null hides the tab completely.
+					href: userRole === "admin" ? "/admin-dash" : null,
 					tabBarIcon: ({ color }) => (
 						<IconSymbol size={28} name="shield.lefthalf.fill" color={color} />
 					),

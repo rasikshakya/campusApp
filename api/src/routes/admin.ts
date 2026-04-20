@@ -6,7 +6,7 @@ import { getDatabase } from "../db/database";
 export const adminRouter = Router();
 
 // Temporarily disabled for local testing without Login screen
-// adminRouter.use(authenticate, requireAuth, requireRole("admin"));
+adminRouter.use(authenticate, requireAuth, requireRole("admin"));
 
 // GET /api/admin/issues - List all issues (active + archived)
 adminRouter.get("/issues", (_req, res) => {

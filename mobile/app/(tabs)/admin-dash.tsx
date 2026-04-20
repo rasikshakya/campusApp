@@ -9,6 +9,7 @@ import {
 	Modal,
 } from "react-native";
 import { API_BASE } from "../../src/services/api";
+import * as SecureStore from "expo-secure-store";
 
 interface DashboardStats {
 	activeIssues: number;
@@ -58,10 +59,23 @@ export default function AdminDashboardScreen() {
 
 	const BASE_URL = `${API_BASE}/admin`;
 
+	// --- NEW HELPER FUNCTION: Attaches the token to every request ---
+	const fetchWithAuth = async (url: string, options: any = {}) => {
+		const token = await SecureStore.getItemAsync("auth_token");
+		return fetch(url, {
+			...options,
+			headers: {
+				...options.headers,
+				Authorization: `Bearer ${token}`,
+				"Content-Type": "application/json",
+			},
+		});
+	};
+
 	// --- ISSUE ACTIONS ---
 	const handleRemoveIssue = async (issueId: number) => {
 		try {
-			const response = await fetch(`${BASE_URL}/issues/${issueId}`, {
+			const response = await fetchWithAuth(`${BASE_URL}/issues/${issueId}`, {
 				method: "DELETE",
 			});
 
@@ -79,9 +93,12 @@ export default function AdminDashboardScreen() {
 
 	const handleKeepIssue = async (issueId: number) => {
 		try {
-			const response = await fetch(`${BASE_URL}/issues/${issueId}/dismiss`, {
-				method: "PATCH",
-			});
+			const response = await fetchWithAuth(
+				`${BASE_URL}/issues/${issueId}/dismiss`,
+				{
+					method: "PATCH",
+				},
+			);
 
 			if (response.ok) {
 				setFlaggedIssues((prevIssues) =>
@@ -98,9 +115,12 @@ export default function AdminDashboardScreen() {
 	// --- USER ACTIONS ---
 	const handleSuspendUser = async (userId: number) => {
 		try {
-			const response = await fetch(`${BASE_URL}/users/${userId}/suspend`, {
-				method: "PATCH",
-			});
+			const response = await fetchWithAuth(
+				`${BASE_URL}/users/${userId}/suspend`,
+				{
+					method: "PATCH",
+				},
+			);
 
 			if (response.ok) {
 				setFlaggedUsers((prevUsers) =>
@@ -118,7 +138,7 @@ export default function AdminDashboardScreen() {
 
 	const handleBanUser = async (userId: number) => {
 		try {
-			const response = await fetch(`${BASE_URL}/users/${userId}/ban`, {
+			const response = await fetchWithAuth(`${BASE_URL}/users/${userId}/ban`, {
 				method: "PATCH",
 			});
 			if (response.ok) {
@@ -131,9 +151,9 @@ export default function AdminDashboardScreen() {
 					prevIssues.filter((issue) => issue.reporter_id !== userId),
 				);
 
-				const statsRes = await fetch(`${BASE_URL}/analytics?t=${Date.now()}`, {
-					headers: { "Cache-Control": "no-cache, no-store" },
-				});
+				const statsRes = await fetchWithAuth(
+					`${BASE_URL}/analytics?t=${Date.now()}`,
+				);
 				const freshStats = await statsRes.json();
 				setStats(freshStats);
 			}
@@ -144,9 +164,12 @@ export default function AdminDashboardScreen() {
 
 	const handleReinstateUser = async (userId: number) => {
 		try {
-			const response = await fetch(`${BASE_URL}/users/${userId}/reactivate`, {
-				method: "PATCH",
-			});
+			const response = await fetchWithAuth(
+				`${BASE_URL}/users/${userId}/reactivate`,
+				{
+					method: "PATCH",
+				},
+			);
 			if (response.ok) {
 				setFlaggedUsers((prevUsers) =>
 					prevUsers.map((user) =>
@@ -164,7 +187,9 @@ export default function AdminDashboardScreen() {
 		setHistoryLoading(true);
 		setIsModalVisible(true);
 		try {
-			const response = await fetch(`${BASE_URL}/users/${userId}/history`);
+			const response = await fetchWithAuth(
+				`${BASE_URL}/users/${userId}/history`,
+			);
 			if (response.ok) {
 				const historyData = await response.json();
 				setUserHistory(historyData);
@@ -183,10 +208,14 @@ export default function AdminDashboardScreen() {
 		const fetchAdminData = async () => {
 			try {
 				const [statsRes, issuesRes, usersRes] = await Promise.all([
-					fetch(`${BASE_URL}/analytics`),
-					fetch(`${BASE_URL}/moderation-queue`),
-					fetch(`${BASE_URL}/users`),
+					fetchWithAuth(`${BASE_URL}/analytics`),
+					fetchWithAuth(`${BASE_URL}/moderation-queue`),
+					fetchWithAuth(`${BASE_URL}/users`),
 				]);
+
+				if (!statsRes.ok || !issuesRes.ok || !usersRes.ok) {
+					throw new Error("One or more requests failed auth/bounced.");
+				}
 
 				const statsData = await statsRes.json();
 				const issuesData = await issuesRes.json();
@@ -226,7 +255,8 @@ export default function AdminDashboardScreen() {
 			{connectionError && (
 				<View style={styles.errorBanner}>
 					<Text style={styles.errorText}>
-						Could not connect to the server at {BASE_URL}. Make sure the API is running and your device is on the same network.
+						Could not connect to the server at {BASE_URL}. Make sure the API is
+						running and your device is on the same network.
 					</Text>
 				</View>
 			)}
@@ -438,6 +468,8 @@ export default function AdminDashboardScreen() {
 		</ScrollView>
 	);
 }
+
+// NOTE: I left your styles object exactly as it was, just ensure it's still at the bottom of the file!
 
 const styles = StyleSheet.create({
 	container: {
