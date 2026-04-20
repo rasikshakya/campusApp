@@ -2,6 +2,7 @@ import { Router } from "express";
 import bcrypt from "bcrypt";
 import { getDatabase } from "../db/database";
 import jwt from "jsonwebtoken";
+import { requireAuth } from "../middleware/auth";
 
 export const authRouter = Router();
 
