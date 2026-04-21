@@ -25,12 +25,23 @@ const DEMO_ITEMS: LostFoundItem[] = [
 
 const ITEM_CATEGORIES = ['Electronics', 'Bags', 'Keys', 'Books', 'Clothing', 'ID / Cards', 'Other'];
 
+type DateFilter = 'All' | 'Today' | '7 days' | '30 days';
+
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const hours = Math.floor(diff / 3600000);
   if (hours < 1)  return 'Just now';
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
+}
+
+function isWithinDateFilter(dateStr: string, filter: DateFilter): boolean {
+  if (filter === 'All') return true;
+  const diff = Date.now() - new Date(dateStr).getTime();
+  if (filter === 'Today')   return diff < 86400000;
+  if (filter === '7 days')  return diff < 604800000;
+  if (filter === '30 days') return diff < 2592000000;
+  return true;
 }
 
 // ── Item card ─────────────────────────────────────────────────
@@ -69,6 +80,7 @@ export default function LostFoundScreen() {
   const [loading,     setLoading]     = useState(true);
   const [search,      setSearch]      = useState('');
   const [filter,      setFilter]      = useState<LostFoundType | 'all'>('all');
+  const [dateFilter,  setDateFilter]  = useState<DateFilter>('All');
   const [showForm,    setShowForm]    = useState(false);
   const [formType,    setFormType]    = useState<LostFoundType>('lost');
   const [formTitle,   setFormTitle]   = useState('');
@@ -132,6 +144,7 @@ export default function LostFoundScreen() {
     if (filter !== 'all' && item.type !== filter) return false;
     if (search && !item.title.toLowerCase().includes(search.toLowerCase()) &&
         !item.description.toLowerCase().includes(search.toLowerCase())) return false;
+    if (!isWithinDateFilter(item.createdAt, dateFilter)) return false;
     return true;
   });
 
@@ -170,6 +183,23 @@ export default function LostFoundScreen() {
         <TouchableOpacity style={styles.reportFoundBtn} onPress={() => { setFormType('found'); setShowForm(true); }}>
           <Text style={styles.reportBtnText}>+ Report found item</Text>
         </TouchableOpacity>
+      </View>
+
+      {/* Date filter */}
+      <View style={{ paddingHorizontal: 10, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#eee' }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            {(['All', 'Today', '7 days', '30 days'] as DateFilter[]).map(d => (
+              <TouchableOpacity
+                key={d}
+                style={[styles.tab, dateFilter === d && styles.tabActive]}
+                onPress={() => setDateFilter(d)}
+              >
+                <Text style={[styles.tabText, dateFilter === d && styles.tabTextActive]}>{d}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
       </View>
 
       {/* List */}

@@ -25,12 +25,25 @@ const DEMO_ISSUES: Issue[] = [
   { id:3, category:'Building', severity:'Large',  description:'Heating issue in Fitzelle Hall',    latitude:42.4537, longitude:-75.0655, reportCount:2, status:'active', reporterId:2, createdAt:'2024-03-08T08:00:00', updatedAt:'' },
 ];
 
+type DateFilter = 'All' | 'Today' | '7 days' | '30 days';
+
 function timeAgo(dateStr: string): string {
   const diff  = Date.now() - new Date(dateStr).getTime();
   const hours = Math.floor(diff / 3600000);
   if (hours < 1)  return 'Just now';
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
+}
+
+function isWithinDateFilter(dateStr: string, filter: DateFilter): boolean {
+  if (filter === 'All') return true;
+  const now = Date.now();
+  const created = new Date(dateStr).getTime();
+  const diff = now - created;
+  if (filter === 'Today')   return diff < 86400000;
+  if (filter === '7 days')  return diff < 604800000;
+  if (filter === '30 days') return diff < 2592000000;
+  return true;
 }
 
 function IssueCard({ issue, onResolve }: { issue: Issue; onResolve: (id: number) => void }) {
@@ -64,10 +77,12 @@ function IssueCard({ issue, onResolve }: { issue: Issue; onResolve: (id: number)
 
 export default function ReportsScreen() {
   const router  = useRouter();
-  const [issues,   setIssues]   = useState<Issue[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [catFilter,  setCatFilter]  = useState<IssueCategory | 'All'>('All');
-  const [sevFilter,  setSevFilter]  = useState<IssueSeverity | 'All'>('All');
+  const [issues,      setIssues]      = useState<Issue[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [catFilter,   setCatFilter]   = useState<IssueCategory | 'All'>('All');
+  const [sevFilter,   setSevFilter]   = useState<IssueSeverity | 'All'>('All');
+  const [dateFilter,  setDateFilter]  = useState<DateFilter>('All');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'active' | 'fixed'>('All');
 
   const fetchIssues = useCallback(async () => {
     setLoading(true);
@@ -99,8 +114,10 @@ export default function ReportsScreen() {
 
   const filtered = issues.filter(i => {
     if (i.status === 'archived') return false;
+    if (statusFilter !== 'All' && i.status !== statusFilter) return false;
     if (catFilter !== 'All' && i.category !== catFilter) return false;
     if (sevFilter !== 'All' && i.severity !== sevFilter) return false;
+    if (!isWithinDateFilter(i.createdAt, dateFilter)) return false;
     return true;
   });
 
@@ -146,9 +163,43 @@ export default function ReportsScreen() {
         </ScrollView>
       </View>
 
+      {/* Status filter */}
+      <View style={styles.filterSection}>
+        <Text style={styles.filterLabel}>Status</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+          {(['All', 'active', 'fixed'] as const).map(s => (
+            <TouchableOpacity
+              key={s}
+              style={[styles.chip, statusFilter === s && styles.chipActive]}
+              onPress={() => setStatusFilter(s)}
+            >
+              <Text style={[styles.chipText, statusFilter === s && styles.chipTextActive]}>
+                {s.charAt(0).toUpperCase() + s.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Date filter */}
+      <View style={styles.filterSection}>
+        <Text style={styles.filterLabel}>Date</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+          {(['All', 'Today', '7 days', '30 days'] as DateFilter[]).map(d => (
+            <TouchableOpacity
+              key={d}
+              style={[styles.chip, dateFilter === d && styles.chipActive]}
+              onPress={() => setDateFilter(d)}
+            >
+              <Text style={[styles.chipText, dateFilter === d && styles.chipTextActive]}>{d}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
       {/* Count + refresh */}
       <View style={styles.countRow}>
-        <Text style={styles.countText}>{filtered.length} active report{filtered.length !== 1 ? 's' : ''}</Text>
+        <Text style={styles.countText}>{filtered.length} report{filtered.length !== 1 ? 's' : ''}</Text>
         <TouchableOpacity onPress={fetchIssues}>
           <Text style={styles.refreshText}>↻ Refresh</Text>
         </TouchableOpacity>
