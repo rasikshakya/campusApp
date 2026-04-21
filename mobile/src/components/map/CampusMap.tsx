@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -18,7 +18,7 @@ import {
   SEVERITY_COLORS,
   SEVERITY_LEVELS,
 } from '@campusapp/shared';
-import type { Issue, IssueCategory, IssueSeverity, LostFoundItem } from '@campusapp/shared';
+import type { Issue, IssueCategory, LostFoundItem } from '@campusapp/shared';
 import { issuesApi, lostFoundApi } from '../../services/api';
 
 // ── Demo data (used until backend is connected) ───────────────
@@ -37,14 +37,13 @@ const bubbleRadius = (count: number) => 20 + count * 8;
 
 type FilterState = {
   category: IssueCategory | 'All';
-  severity: IssueSeverity | 'All';
 };
 
 export default function CampusMap() {
   const [issues,    setIssues]    = useState<Issue[]>([]);
   const [lostItems, setLostItems] = useState<LostFoundItem[]>([]);
   const [loading,   setLoading]   = useState(true);
-  const [filters,   setFilters]   = useState<FilterState>({ category: 'All', severity: 'All' });
+  const [filters,   setFilters]   = useState<FilterState>({ category: 'All' });
   const [showHeatmap,   setShowHeatmap]   = useState(true);
   const [showLostFound, setShowLostFound] = useState(true);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
@@ -104,16 +103,27 @@ export default function CampusMap() {
     intervalRef.current = setInterval(() => fetchData({ silent: true }), 60000);
   }, [fetchData]);
 
-  const filteredIssues = issues.filter(issue => {
-    if (issue.status !== 'active') return false;
-    if (filters.category !== 'All' && issue.category !== filters.category) return false;
-    if (filters.severity !== 'All' && issue.severity !== filters.severity) return false;
-    return true;
-  });
-
-  const activeLostItems = lostItems.filter(
-    i => i.status === 'active' && i.latitude != null && i.longitude != null
+  const filteredIssues = useMemo(
+    () => issues.filter(issue => {
+      if (issue.status !== 'active') return false;
+      if (filters.category !== 'All' && issue.category !== filters.category) return false;
+      return true;
+    }),
+    [issues, filters.category]
   );
+
+  const activeLostItems = useMemo(
+    () => lostItems.filter(i => i.status === 'active' && i.latitude != null && i.longitude != null),
+    [lostItems]
+  );
+
+  // Close popup when the selected issue is no longer in the filtered set
+  // (filter change, auto-refresh dropped the row, or status transitioned).
+  useEffect(() => {
+    if (selectedIssue && !filteredIssues.some(i => i.id === selectedIssue.id)) {
+      setSelectedIssue(null);
+    }
+  }, [filteredIssues, selectedIssue]);
 
   return (
     <View style={styles.container}>
