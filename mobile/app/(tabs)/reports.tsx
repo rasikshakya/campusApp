@@ -15,7 +15,7 @@ import {
   SEVERITY_LEVELS,
   SEVERITY_COLORS,
 } from '@campusapp/shared';
-import type { Issue, IssueCategory, IssueSeverity } from '@campusapp/shared';
+import type { Issue, IssueCategory, IssueSeverity, IssueFilters, IssueStatus } from '@campusapp/shared';
 import { issuesApi } from '../../src/services/api';
 
 // ── Demo data ─────────────────────────────────────────────────
@@ -27,6 +27,12 @@ const DEMO_ISSUES: Issue[] = [
 
 type DateFilter = 'All' | 'Today' | '7 days' | '30 days';
 
+const DATE_FILTER_MS: Record<Exclude<DateFilter, 'All'>, number> = {
+  'Today': 86400000,
+  '7 days': 604800000,
+  '30 days': 2592000000,
+};
+
 function timeAgo(dateStr: string): string {
   const diff  = Date.now() - new Date(dateStr).getTime();
   const hours = Math.floor(diff / 3600000);
@@ -35,15 +41,9 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-function isWithinDateFilter(dateStr: string, filter: DateFilter): boolean {
-  if (filter === 'All') return true;
-  const now = Date.now();
-  const created = new Date(dateStr).getTime();
-  const diff = now - created;
-  if (filter === 'Today')   return diff < 86400000;
-  if (filter === '7 days')  return diff < 604800000;
-  if (filter === '30 days') return diff < 2592000000;
-  return true;
+function dateFilterToStartDate(filter: DateFilter): string | undefined {
+  if (filter === 'All') return undefined;
+  return new Date(Date.now() - DATE_FILTER_MS[filter]).toISOString();
 }
 
 function IssueCard({ issue, onResolve }: { issue: Issue; onResolve: (id: number) => void }) {
@@ -84,19 +84,25 @@ export default function ReportsScreen() {
   const [catFilter,    setCatFilter]    = useState<IssueCategory | 'All'>('All');
   const [sevFilter,    setSevFilter]    = useState<IssueSeverity | 'All'>('All');
   const [dateFilter,   setDateFilter]   = useState<DateFilter>('All');
-  const [statusFilter, setStatusFilter] = useState<'All' | 'active' | 'fixed'>('All');
+  const [statusFilter, setStatusFilter] = useState<'All' | IssueStatus>('All');
 
   const fetchIssues = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await issuesApi.getAll();
+      const filters: IssueFilters = {
+        category: catFilter !== 'All' ? catFilter : undefined,
+        severity: sevFilter !== 'All' ? sevFilter : undefined,
+        status:   statusFilter !== 'All' ? statusFilter : undefined,
+        startDate: dateFilterToStartDate(dateFilter),
+      };
+      const data = await issuesApi.getAll(filters);
       setIssues(data);
     } catch {
       setIssues(DEMO_ISSUES);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [catFilter, sevFilter, statusFilter, dateFilter]);
 
   useEffect(() => { fetchIssues(); }, [fetchIssues]);
 
@@ -114,14 +120,9 @@ export default function ReportsScreen() {
     ]);
   };
 
-  const filtered = issues.filter(i => {
-    if (i.status === 'archived') return false;
-    if (statusFilter !== 'All' && i.status !== statusFilter) return false;
-    if (catFilter !== 'All' && i.category !== catFilter) return false;
-    if (sevFilter !== 'All' && i.severity !== sevFilter) return false;
-    if (!isWithinDateFilter(i.createdAt, dateFilter)) return false;
-    return true;
-  });
+  // The server applies category, severity, status, and startDate filters.
+  // Archived rows are also excluded server-side when no explicit status is passed.
+  const filtered = issues;
 
   return (
     <View style={styles.container}>

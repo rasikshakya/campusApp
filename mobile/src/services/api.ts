@@ -66,8 +66,11 @@ export const authAPI = {
 // Issues (for Darin)
 export const issuesApi = {
 	getAll: (filters?: IssueFilters) => {
-		const params = filters
-			? '?' + new URLSearchParams(filters as Record<string, string>).toString()
+		const entries = Object.entries(filters ?? {}).filter(
+			([, v]) => v != null && v !== ''
+		) as [string, string][];
+		const params = entries.length
+			? '?' + new URLSearchParams(entries).toString()
 			: '';
 		return request<Issue[]>(`/issues${params}`);
 	},
