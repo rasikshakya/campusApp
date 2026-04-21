@@ -117,8 +117,43 @@ issuesRouter.get("/:id", (_req: Request, res: Response) => {
 });
 
 // PATCH /api/issues/:id/resolve - Mark issue as fixed
-issuesRouter.patch("/:id/resolve", requireAuth, (_req: Request, res: Response) => {
-  res.status(501).json({ message: "Not implemented: resolve issue" });
+issuesRouter.patch("/:id/resolve", requireAuth, (req: Request, res: Response) => {
+  try {
+    const db = getDatabase();
+    const { id } = req.params;
+
+    const issue = db.prepare('SELECT * FROM issues WHERE id = ?').get(id) as any;
+    if (!issue) {
+      res.status(404).json({ error: 'Issue not found' });
+      return;
+    }
+
+    if (issue.status === 'fixed') {
+      res.status(400).json({ error: 'Issue is already marked as fixed' });
+      return;
+    }
+
+    db.prepare(`
+      UPDATE issues SET status = 'fixed', updated_at = datetime('now') WHERE id = ?
+    `).run(id);
+
+    const updated = db.prepare(`
+      SELECT
+        id, category, severity, description,
+        latitude, longitude,
+        report_count AS reportCount,
+        reporter_id AS reporterId,
+        status,
+        created_at AS createdAt,
+        updated_at AS updatedAt
+      FROM issues WHERE id = ?
+    `).get(id);
+
+    res.json(updated);
+  } catch (error) {
+    console.error('Resolve issue error:', error);
+    res.status(500).json({ error: 'Server error resolving issue' });
+  }
 });
 
 // GET /api/issues/heatmap/data - Get heatmap data
