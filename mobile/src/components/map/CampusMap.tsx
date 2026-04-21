@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -6,7 +6,9 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  AppState,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import MapView, { Circle, Marker, Region } from 'react-native-maps';
 import {
   CAMPUS_CENTER,
@@ -46,6 +48,7 @@ export default function CampusMap() {
   const [showHeatmap,   setShowHeatmap]   = useState(true);
   const [showLostFound, setShowLostFound] = useState(true);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const mapRegion: Region = {
     latitude:  CAMPUS_CENTER.latitude,
@@ -53,8 +56,8 @@ export default function CampusMap() {
     ...CAMPUS_DEFAULT_ZOOM,
   };
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  const fetchData = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) setLoading(true);
     try {
       const [issueData, lfData] = await Promise.all([
         issuesApi.getAll(),
@@ -67,11 +70,39 @@ export default function CampusMap() {
       setIssues(DEMO_ISSUES);
       setLostItems(DEMO_LOST);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  // Fetch on tab focus + poll every 60s while focused (Manual §4.1). Silent polls
+  // avoid flashing the loading overlay every minute.
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+      intervalRef.current = setInterval(() => fetchData({ silent: true }), 60000);
+      return () => {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+      };
+    }, [fetchData])
+  );
+
+  // Silent refetch when the app returns from background; prevents stale data after >60s away.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', next => {
+      if (next === 'active') fetchData({ silent: true });
+    });
+    return () => sub.remove();
+  }, [fetchData]);
+
+  // Manual ↻ resets the 60s clock so users don't see a second overlay flash right after tapping.
+  const onManualRefresh = useCallback(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    fetchData();
+    intervalRef.current = setInterval(() => fetchData({ silent: true }), 60000);
+  }, [fetchData]);
 
   const filteredIssues = issues.filter(issue => {
     if (issue.status !== 'active') return false;
@@ -167,7 +198,7 @@ export default function CampusMap() {
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.refreshBtn} onPress={fetchData}>
+        <TouchableOpacity style={styles.refreshBtn} onPress={onManualRefresh}>
           <Text style={styles.refreshText}>↻</Text>
         </TouchableOpacity>
       </View>
