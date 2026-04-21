@@ -30,6 +30,17 @@ export function setAuthToken(token: string | null) {
 	authToken = token;
 }
 
+// Thrown when fetch itself rejects before getting a response (DNS failure,
+// connection refused, timeout). Screens use this tag to decide whether to
+// show the demo-data fallback vs a real error surface.
+export class NetworkError extends Error {
+	constructor(cause?: unknown) {
+		super('Network request failed');
+		this.name = 'NetworkError';
+		(this as { cause?: unknown }).cause = cause;
+	}
+}
+
 async function request<T>(
 	path: string,
 	options: RequestInit = {}
@@ -40,7 +51,12 @@ async function request<T>(
 	};
 	if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
 
-	const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+	let res: Response;
+	try {
+		res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+	} catch (err) {
+		throw new NetworkError(err);
+	}
 	if (!res.ok) {
 		const err = await res.json().catch(() => ({ message: res.statusText }));
 		throw new Error(err.message ?? 'Request failed');

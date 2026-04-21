@@ -19,7 +19,7 @@ import {
   SEVERITY_LEVELS,
 } from '@campusapp/shared';
 import type { Issue, IssueCategory, LostFoundItem } from '@campusapp/shared';
-import { issuesApi, lostFoundApi } from '../../services/api';
+import { issuesApi, lostFoundApi, NetworkError } from '../../services/api';
 
 // ── Demo data (used until backend is connected) ───────────────
 const DEMO_ISSUES: Issue[] = [
@@ -47,6 +47,7 @@ export default function CampusMap() {
   const [showHeatmap,   setShowHeatmap]   = useState(true);
   const [showLostFound, setShowLostFound] = useState(true);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
+  const [fetchError,    setFetchError]    = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const mapRegion: Region = {
@@ -64,10 +65,17 @@ export default function CampusMap() {
       ]);
       setIssues(issueData);
       setLostItems(lfData);
-    } catch {
-      // Backend not yet connected — fall back to demo data
-      setIssues(DEMO_ISSUES);
-      setLostItems(DEMO_LOST);
+      setFetchError(null);
+    } catch (err) {
+      if (err instanceof NetworkError) {
+        // Device can't reach the backend (e.g. Expo Go on a different Wi-Fi) — fall back to demo data.
+        setIssues(DEMO_ISSUES);
+        setLostItems(DEMO_LOST);
+        setFetchError(null);
+      } else {
+        // Server returned an error; keep whatever data we have and surface a message.
+        setFetchError(err instanceof Error ? err.message : 'Failed to load map data');
+      }
     } finally {
       if (!silent) setLoading(false);
     }
@@ -213,6 +221,12 @@ export default function CampusMap() {
         </TouchableOpacity>
       </View>
 
+      {fetchError && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorBannerText}>{fetchError}</Text>
+        </View>
+      )}
+
       {/* ── Legend ─────────────────────────────────────────── */}
       <View style={styles.legend}>
         {SEVERITY_LEVELS.map(sev => (
@@ -286,4 +300,6 @@ const styles = StyleSheet.create({
   popupDesc:       { fontSize: 12, color: '#555', marginBottom: 4 },
   popupMeta:       { fontSize: 11, color: '#999' },
   loadingOverlay:  { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.6)', justifyContent: 'center', alignItems: 'center' },
+  errorBanner:     { position: 'absolute', top: 96, left: 10, right: 10, backgroundColor: '#FDEDEC', borderColor: '#E74C3C', borderWidth: 1, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6 },
+  errorBannerText: { fontSize: 11, color: '#922B21' },
 });

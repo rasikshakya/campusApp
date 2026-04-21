@@ -16,7 +16,7 @@ import {
   SEVERITY_COLORS,
 } from '@campusapp/shared';
 import type { Issue, IssueCategory, IssueSeverity, IssueFilters, IssueStatus } from '@campusapp/shared';
-import { issuesApi } from '../../src/services/api';
+import { issuesApi, NetworkError } from '../../src/services/api';
 
 // ── Demo data ─────────────────────────────────────────────────
 const DEMO_ISSUES: Issue[] = [
@@ -95,6 +95,7 @@ export default function ReportsScreen() {
   const [sevFilter,    setSevFilter]    = useState<IssueSeverity | 'All'>('All');
   const [dateFilter,   setDateFilter]   = useState<DateFilter>('All');
   const [statusFilter, setStatusFilter] = useState<'All' | IssueStatus>('All');
+  const [fetchError,   setFetchError]   = useState<string | null>(null);
 
   const fetchIssues = useCallback(async () => {
     setLoading(true);
@@ -107,8 +108,14 @@ export default function ReportsScreen() {
       };
       const data = await issuesApi.getAll(filters);
       setIssues(data);
-    } catch {
-      setIssues(DEMO_ISSUES);
+      setFetchError(null);
+    } catch (err) {
+      if (err instanceof NetworkError) {
+        setIssues(DEMO_ISSUES);
+        setFetchError(null);
+      } else {
+        setFetchError(err instanceof Error ? err.message : 'Failed to load reports');
+      }
     } finally {
       setLoading(false);
     }
@@ -218,6 +225,12 @@ export default function ReportsScreen() {
         </TouchableOpacity>
       </View>
 
+      {fetchError && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorBannerText}>{fetchError}</Text>
+        </View>
+      )}
+
       {/* List */}
       {loading ? (
         <ActivityIndicator style={{ marginTop: 40 }} size="large" color="#1A5276" />
@@ -274,4 +287,6 @@ const styles = StyleSheet.create({
   resolveBtnText:  { fontSize: 12, color: '#1A5276' },
   fab:             { position: 'absolute', bottom: 24, right: 20, width: 52, height: 52, borderRadius: 26, backgroundColor: '#1A5276', justifyContent: 'center', alignItems: 'center', elevation: 5 },
   fabText:         { color: '#fff', fontSize: 28, lineHeight: 30 },
+  errorBanner:     { marginHorizontal: 14, marginTop: 6, backgroundColor: '#FDEDEC', borderColor: '#E74C3C', borderWidth: 1, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6 },
+  errorBannerText: { fontSize: 11, color: '#922B21' },
 });
