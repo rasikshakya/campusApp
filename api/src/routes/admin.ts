@@ -57,16 +57,32 @@ adminRouter.patch("/issues/:id/dismiss", (_req, res) => {
 	}
 });
 
-// GET /api/admin/lost-found - List all lost/found threads
+// GET /api/admin/lost-found - List all active lost/found threads
 adminRouter.get("/lost-found", (_req, res) => {
-	res.status(501).json({ message: "Not implemented: admin list lost/found" });
+    try {
+        const db = getDatabase();
+        const sql = "SELECT * FROM lost_found_items WHERE status = 'active' ORDER BY created_at DESC";
+        const rows = db.prepare(sql).all();
+        res.json(rows);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
-// DELETE /api/admin/lost-found/:id - Delete lost/found thread
+// DELETE /api/admin/lost-found/:id - Remove/Resolve lost/found thread
 adminRouter.delete("/lost-found/:id", (_req, res) => {
-	res.status(501).json({ message: "Not implemented: admin delete lost/found" });
-});
+    try {
+        const db = getDatabase();
+        const itemId = _req.params.id;
+        
+        const sql = "UPDATE lost_found_items SET status = 'resolved' WHERE id = ?";
+        db.prepare(sql).run(itemId);
 
+        res.json({ message: `Item ${itemId} has been resolved/removed.` });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
 // GET /api/admin/users - List user accounts
 adminRouter.get("/users", (_req, res) => {
 	try {
