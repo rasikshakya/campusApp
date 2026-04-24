@@ -10,8 +10,26 @@ adminRouter.use(authenticate, requireAuth, requireRole("admin"));
 
 // GET /api/admin/issues - List all issues (active + archived)
 adminRouter.get("/issues", (_req, res) => {
-	// TODO: Return all issues with admin-level filters (reporter, status)
-	res.status(501).json({ message: "Not implemented: admin list issues" });
+    try {
+        const db = getDatabase();
+        const sql = "SELECT * FROM issues ORDER BY created_at DESC";
+        const rows = db.prepare(sql).all();
+        res.json(rows);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// GET /api/admin/lost-found/all - List all lost/found threads (active + resolved)
+adminRouter.get("/lost-found/all", (_req, res) => {
+    try {
+        const db = getDatabase();
+        const sql = "SELECT * FROM lost_found_items ORDER BY created_at DESC";
+        const rows = db.prepare(sql).all();
+        res.json(rows);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // PATCH /api/admin/issues/:id/severity - Override issue severity
@@ -146,8 +164,20 @@ adminRouter.patch("/users/:id/reactivate", (_req, res) => {
 
 // GET /api/admin/audit-log - View audit trail
 adminRouter.get("/audit-log", (_req, res) => {
-	// TODO: Return paginated audit log entries
-	res.status(501).json({ message: "Not implemented: audit log" });
+    try {
+        const db = getDatabase();
+        const sql = `
+            SELECT a.id, a.action, a.affected_content_id, a.timestamp, u.email as admin_email
+            FROM audit_logs a
+            LEFT JOIN users u ON a.admin_user_id = u.id
+            ORDER BY a.timestamp DESC 
+            LIMIT 50
+        `;
+        const rows = db.prepare(sql).all();
+        res.json(rows);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // GET /api/admin/moderation-queue - Flagged content queue
